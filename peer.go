@@ -46,49 +46,51 @@ func (p *Peer) listen() {
 	}
 }
 
-func (p *Peer) muxWrite() {
+func (p *Peer) muxWrite(conn net.Conn) {
 	for {
 		select {
 		case msg := <-p.WriteChan:
-			fmt.Println(len(p.Conns))
-			for _, conn := range p.Conns {
-				fmt.Println("Sending message")
-				_, err := conn.Write(msg)
-				if err != nil {
-					fmt.Println(err)
-				}
+			fmt.Println("Sending message")
+			_, err := conn.Write(msg)
+			if err != nil {
+				fmt.Println(err)
 			}
 		}
 	}
 }
 
-func (p *Peer) muxRead() {
+func (p *Peer) muxRead(conn net.Conn) {
 	for {
-		for _, conn := range p.Conns {
-			buf := make([]byte, 1024)
-			n, err := conn.Read(buf)
-			if err != nil {
-				continue
-			}
-			p.ReadChan <- buf[:n]
+		buf := make([]byte, 1024)
+		n, err := conn.Read(buf)
+		if err != nil {
+			continue
 		}
+		p.ReadChan <- buf[:n]
 	}
 }
 
 func (p *Peer) GracefulExit() {
+	p.m.Lock()
 	for _, conn := range p.Conns {
 		conn.Close()
 	}
+	p.m.Unlock()
+	close(p.WriteChan)
+	close(p.ReadChan)
 }
 
 func (p *Peer) Start() {
-	go p.muxWrite()
-	go p.muxRead()
+	for _, conn := range p.Conns {
+		go p.muxRead(conn)
+		go p.muxWrite(conn)
+	}
 }
 
 func NewPeer(ipList []string) *Peer {
 	peer := &Peer{}
-
+	peer.WriteChan = make(chan []byte)
+	peer.ReadChan = make(chan []byte)
 	wg := sync.WaitGroup{}
 	wg.Add(len(ipList))
 	for _, ip := range ipList {
