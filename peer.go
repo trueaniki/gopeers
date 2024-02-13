@@ -48,13 +48,13 @@ func (p *Peer) muxWrite() {
 }
 
 func (p *Peer) muxRead() {
+	fmt.Println("Waiting for connections")
+	ln, err := net.Listen("tcp", ":"+PORT)
+	if err != nil {
+		panic(err)
+	}
 	for {
 		// Accept new connections
-		fmt.Println("Waiting for connections")
-		ln, err := net.Listen("tcp", ":"+PORT)
-		if err != nil {
-			panic(err)
-		}
 		conn, err := ln.Accept()
 		fmt.Println("New connection")
 		if err != nil {
