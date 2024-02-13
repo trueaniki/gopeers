@@ -32,13 +32,16 @@ func (p *Peer) tryConnect(ip string) {
 
 func (p *Peer) muxWrite() {
 	for msg := range p.WriteChan {
+		fmt.Println("Got message", string(msg))
 		// Send the message to all peers
 		for peer := range p.Peers {
+			fmt.Println("Sending to", peer)
 			conn, err := net.Dial("tcp", peer)
 			if err != nil {
 				fmt.Println(err)
 				continue
 			}
+			fmt.Println("Sending: ", string(msg))
 			_, err = conn.Write(msg)
 			if err != nil {
 				fmt.Println(err)
