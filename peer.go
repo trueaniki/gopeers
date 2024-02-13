@@ -12,7 +12,7 @@ const (
 
 type Peer struct {
 	m     sync.RWMutex
-	Peers []string
+	Peers map[string]struct{}
 
 	WriteChan chan []byte
 	ReadChan  chan []byte
@@ -26,71 +26,76 @@ func (p *Peer) tryConnect(ip string) {
 		return
 	}
 	p.m.Lock()
-	p.Peers = append(p.Peers, ip+":"+PORT)
+	p.Peers[ip+":"+PORT] = struct{}{}
 	p.m.Unlock()
 }
 
-func (p *Peer) listen() {
-	ln, err := net.Listen("tcp", ":"+PORT)
-	if err != nil {
-		panic(err)
-	}
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			continue
-		}
-		p.m.Lock()
-		p.Peers = append(p.Peers, conn.RemoteAddr().String())
-		p.m.Unlock()
-	}
-}
-
-func (p *Peer) muxWrite(conn net.Conn) {
+func (p *Peer) muxWrite() {
 	for {
 		select {
 		case msg := <-p.WriteChan:
-			fmt.Println("Sending message")
-			_, err := conn.Write(msg)
-			if err != nil {
-				fmt.Println(err)
+			// Send the message to all peers
+			for peer := range p.Peers {
+				conn, err := net.Dial("tcp", peer)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				_, err = conn.Write(msg)
+				if err != nil {
+					fmt.Println(err)
+				}
 			}
 		}
 	}
 }
 
-func (p *Peer) muxRead(conn net.Conn) {
+func (p *Peer) muxRead() {
 	for {
+		// Accept new connections
+		fmt.Println("Waiting for connections")
+		ln, err := net.Listen("tcp", ":"+PORT)
+		if err != nil {
+			panic(err)
+		}
+		conn, err := ln.Accept()
+		fmt.Println("New connection")
+		if err != nil {
+			continue
+		}
+		// Add new peer to the set
+		if _, ok := p.Peers[conn.RemoteAddr().String()]; !ok {
+			p.m.Lock()
+			p.Peers[conn.RemoteAddr().String()] = struct{}{}
+			p.m.Unlock()
+		}
+		// Read from the peer
 		buf := make([]byte, 1024)
 		n, err := conn.Read(buf)
 		if err != nil {
 			continue
 		}
+		// Pass the message to the channel
 		p.ReadChan <- buf[:n]
 	}
 }
 
 func (p *Peer) GracefulExit() {
-	// p.m.Lock()
-	// for _, conn := range p.Conns {
-	// 	conn.Close()
-	// }
-	// p.m.Unlock()
 	close(p.WriteChan)
 	close(p.ReadChan)
 }
 
 func (p *Peer) Start() {
-	for _, conn := range p.Conns {
-		go p.muxRead(conn)
-		go p.muxWrite(conn)
-	}
+	go p.muxRead()
+	go p.muxWrite()
 }
 
 func NewPeer(ipList []string) *Peer {
 	peer := &Peer{}
 	peer.WriteChan = make(chan []byte)
 	peer.ReadChan = make(chan []byte)
+	peer.Peers = make(map[string]struct{}, 10)
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(ipList))
 	for _, ip := range ipList {
@@ -100,8 +105,6 @@ func NewPeer(ipList []string) *Peer {
 		}(ip)
 	}
 	wg.Wait()
-
-	go peer.listen()
 
 	return peer
 }
