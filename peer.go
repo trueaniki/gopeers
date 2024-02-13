@@ -31,20 +31,17 @@ func (p *Peer) tryConnect(ip string) {
 }
 
 func (p *Peer) muxWrite() {
-	for {
-		select {
-		case msg := <-p.WriteChan:
-			// Send the message to all peers
-			for peer := range p.Peers {
-				conn, err := net.Dial("tcp", peer)
-				if err != nil {
-					fmt.Println(err)
-					continue
-				}
-				_, err = conn.Write(msg)
-				if err != nil {
-					fmt.Println(err)
-				}
+	for msg := range p.WriteChan {
+		// Send the message to all peers
+		for peer := range p.Peers {
+			conn, err := net.Dial("tcp", peer)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			_, err = conn.Write(msg)
+			if err != nil {
+				fmt.Println(err)
 			}
 		}
 	}
