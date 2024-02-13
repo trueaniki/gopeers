@@ -58,6 +58,7 @@ func (p *Peer) muxRead() {
 		conn, err := ln.Accept()
 		fmt.Println("New connection")
 		if err != nil {
+			fmt.Println(err)
 			continue
 		}
 		// Add new peer to the set
