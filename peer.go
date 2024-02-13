@@ -12,7 +12,7 @@ const (
 
 type Peer struct {
 	m     sync.RWMutex
-	Conns []net.Conn
+	Peers []string
 
 	WriteChan chan []byte
 	ReadChan  chan []byte
@@ -20,13 +20,13 @@ type Peer struct {
 
 // Tries to dial the ip by TCP
 func (p *Peer) tryConnect(ip string) {
-	conn, err := net.Dial("tcp", ip+":"+PORT)
+	_, err := net.Dial("tcp", ip+":"+PORT)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	p.m.Lock()
-	p.Conns = append(p.Conns, conn)
+	p.Peers = append(p.Peers, ip+":"+PORT)
 	p.m.Unlock()
 }
 
@@ -41,7 +41,7 @@ func (p *Peer) listen() {
 			continue
 		}
 		p.m.Lock()
-		p.Conns = append(p.Conns, conn)
+		p.Peers = append(p.Peers, conn.RemoteAddr().String())
 		p.m.Unlock()
 	}
 }
@@ -71,11 +71,11 @@ func (p *Peer) muxRead(conn net.Conn) {
 }
 
 func (p *Peer) GracefulExit() {
-	p.m.Lock()
-	for _, conn := range p.Conns {
-		conn.Close()
-	}
-	p.m.Unlock()
+	// p.m.Lock()
+	// for _, conn := range p.Conns {
+	// 	conn.Close()
+	// }
+	// p.m.Unlock()
 	close(p.WriteChan)
 	close(p.ReadChan)
 }
