@@ -32,7 +32,7 @@ func PingSweep(network string) []string {
 }
 
 func ping(ip string) bool {
-	c, err := icmp.ListenPacket("ip4:icmp", "192.168.100.24")
+	c, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	if err != nil {
 		panic(err)
 	}
