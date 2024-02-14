@@ -16,15 +16,23 @@ type Peer struct {
 
 	WriteChan chan []byte
 	ReadChan  chan []byte
+
+	laddr *net.TCPAddr
 }
 
 // Tries to dial the ip by TCP
 func (p *Peer) tryConnect(ip string) {
-	_, err := net.Dial("tcp", ip+":"+PORT)
+	conn, err := net.DialTCP("tcp",
+		p.laddr,
+		&net.TCPAddr{IP: net.ParseIP(ip), Port: 34759},
+	)
+	// _, err := net.Dial("tcp", ip+":"+PORT)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	defer conn.Close()
+	// Add the peer to the set
 	p.m.Lock()
 	p.Peers[ip+":"+PORT] = struct{}{}
 	p.m.Unlock()
@@ -36,7 +44,10 @@ func (p *Peer) muxWrite() {
 		// Send the message to all peers
 		for peer := range p.Peers {
 			fmt.Println("Sending to", peer)
-			conn, err := net.Dial("tcp", peer)
+			conn, err := net.DialTCP("tcp",
+				p.laddr,
+				&net.TCPAddr{IP: net.ParseIP(peer), Port: 34759},
+			)
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -64,6 +75,7 @@ func (p *Peer) muxRead() {
 			fmt.Println(err)
 			continue
 		}
+
 		// Add new peer to the set
 		if _, ok := p.Peers[conn.RemoteAddr().String()]; !ok {
 			p.m.Lock()
@@ -78,6 +90,7 @@ func (p *Peer) muxRead() {
 		}
 		// Pass the message to the channel
 		p.ReadChan <- buf[:n]
+		conn.Close()
 	}
 }
 
@@ -97,8 +110,11 @@ func NewPeer(ipList []string) *Peer {
 	peer.ReadChan = make(chan []byte)
 	peer.Peers = make(map[string]struct{}, 10)
 
+	peer.laddr = &net.TCPAddr{IP: nil, Port: 34759}
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(ipList))
+	// Find devices that are using gopeers
 	for _, ip := range ipList {
 		go func(ip string) {
 			peer.tryConnect(ip)
