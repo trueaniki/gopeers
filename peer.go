@@ -36,7 +36,7 @@ func (p *Peer) tryConnect(ip string) {
 	defer conn.Close()
 	// Add the peer to the set
 	p.m.Lock()
-	p.Peers[ip+":"+PORT_S] = struct{}{}
+	p.Peers[ip] = struct{}{}
 	p.m.Unlock()
 }
 
@@ -45,12 +45,13 @@ func (p *Peer) muxWrite() {
 		fmt.Println("Got message", string(msg))
 		// Send the message to all peers
 		for peer := range p.Peers {
-			fmt.Println("Sending to", peer)
+			fmt.Println("Sending to", net.ParseIP(peer), PORT)
 			conn, err := net.DialTCP("tcp",
 				nil,
 				&net.TCPAddr{IP: net.ParseIP(peer), Port: PORT},
 			)
 			if err != nil {
+				fmt.Println("Error while dialing", peer, err)
 				fmt.Println(err)
 				continue
 			}
@@ -59,6 +60,7 @@ func (p *Peer) muxWrite() {
 			if err != nil {
 				fmt.Println(err)
 			}
+			conn.Close()
 		}
 	}
 }
@@ -78,8 +80,7 @@ func (p *Peer) muxRead() {
 			continue
 		}
 
-		// Port can differ, so changing it to the standard one
-		peerAddr := strings.Split(conn.RemoteAddr().String(), ":")[0] + ":" + PORT_S
+		peerAddr := strings.Split(conn.RemoteAddr().String(), ":")[0]
 		// Add new peer to the set
 		if _, ok := p.Peers[peerAddr]; !ok {
 			p.m.Lock()
