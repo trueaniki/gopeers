@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	PORT_S = "34759"
-	PORT   = 34759
+	PORT_S    = "34759"
+	PORT      = 34759
+	HELLO_MSG = "HELLO"
 )
 
 type Peer struct {
@@ -34,6 +35,13 @@ func (p *Peer) tryConnect(ip string) {
 		return
 	}
 	defer conn.Close()
+
+	_, err = conn.Write([]byte(HELLO_MSG))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	// Add the peer to the set
 	p.m.Lock()
 	p.Peers[ip] = struct{}{}
@@ -95,7 +103,9 @@ func (p *Peer) muxRead() {
 			continue
 		}
 		// Pass the message to the channel
-		p.ReadChan <- buf[:n]
+		if string(buf[:n]) != HELLO_MSG {
+			p.ReadChan <- buf[:n]
+		}
 		conn.Close()
 	}
 }
