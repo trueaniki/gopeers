@@ -23,7 +23,7 @@ type Peer struct {
 // Tries to dial the ip by TCP
 func (p *Peer) tryConnect(ip string) {
 	conn, err := net.DialTCP("tcp",
-		p.laddr,
+		nil,
 		&net.TCPAddr{IP: net.ParseIP(ip), Port: 34759},
 	)
 	// _, err := net.Dial("tcp", ip+":"+PORT)
@@ -45,7 +45,7 @@ func (p *Peer) muxWrite() {
 		for peer := range p.Peers {
 			fmt.Println("Sending to", peer)
 			conn, err := net.DialTCP("tcp",
-				p.laddr,
+				nil,
 				&net.TCPAddr{IP: net.ParseIP(peer), Port: 34759},
 			)
 			if err != nil {
