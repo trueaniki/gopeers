@@ -3,11 +3,13 @@ package gopeers
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 )
 
 const (
-	PORT = "34759"
+	PORT_S = "34759"
+	PORT   = 34759
 )
 
 type Peer struct {
@@ -34,7 +36,7 @@ func (p *Peer) tryConnect(ip string) {
 	defer conn.Close()
 	// Add the peer to the set
 	p.m.Lock()
-	p.Peers[ip+":"+PORT] = struct{}{}
+	p.Peers[ip+":"+PORT_S] = struct{}{}
 	p.m.Unlock()
 }
 
@@ -46,7 +48,7 @@ func (p *Peer) muxWrite() {
 			fmt.Println("Sending to", peer)
 			conn, err := net.DialTCP("tcp",
 				nil,
-				&net.TCPAddr{IP: net.ParseIP(peer), Port: 34759},
+				&net.TCPAddr{IP: net.ParseIP(peer), Port: PORT},
 			)
 			if err != nil {
 				fmt.Println(err)
@@ -63,7 +65,7 @@ func (p *Peer) muxWrite() {
 
 func (p *Peer) muxRead() {
 	fmt.Println("Waiting for connections")
-	ln, err := net.Listen("tcp", ":"+PORT)
+	ln, err := net.Listen("tcp", ":"+PORT_S)
 	if err != nil {
 		panic(err)
 	}
@@ -76,8 +78,10 @@ func (p *Peer) muxRead() {
 			continue
 		}
 
+		// Port can differ, so changing it to the standard one
+		peerAddr := strings.Split(conn.RemoteAddr().String(), ":")[0] + ":" + PORT_S
 		// Add new peer to the set
-		if _, ok := p.Peers[conn.RemoteAddr().String()]; !ok {
+		if _, ok := p.Peers[peerAddr]; !ok {
 			p.m.Lock()
 			p.Peers[conn.RemoteAddr().String()] = struct{}{}
 			p.m.Unlock()
@@ -86,6 +90,7 @@ func (p *Peer) muxRead() {
 		buf := make([]byte, 1024)
 		n, err := conn.Read(buf)
 		if err != nil {
+			fmt.Println(err)
 			continue
 		}
 		// Pass the message to the channel

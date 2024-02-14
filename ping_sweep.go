@@ -79,7 +79,7 @@ func ping(ip string) bool {
 			// fmt.Printf("got reflection from %v", rm)
 			return true
 		default:
-			fmt.Printf("got %+v; want echo reply", rm)
+			fmt.Printf("got %+v; want echo reply\n", rm)
 			return false
 		}
 	}
