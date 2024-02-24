@@ -1,7 +1,6 @@
 package gopeers
 
 import (
-	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -48,7 +47,7 @@ func ping(ip string) bool {
 
 	wb, err := wm.Marshal(nil)
 	if err != nil {
-		panic(err)
+		return false
 	}
 
 	c.SetReadDeadline(time.Now().Add(1 * time.Second))
@@ -63,7 +62,7 @@ func ping(ip string) bool {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				return false
 			}
-			panic(err)
+			return false
 		}
 		if addr.String() != ip {
 			continue
@@ -71,15 +70,13 @@ func ping(ip string) bool {
 
 		rm, err := icmp.ParseMessage(1, rb[:n])
 		if err != nil {
-			panic(err)
+			return false
 		}
 
 		switch rm.Type {
 		case ipv4.ICMPTypeEchoReply:
-			// fmt.Printf("got reflection from %v", rm)
 			return true
 		default:
-			fmt.Printf("got %+v; want echo reply\n", rm)
 			return false
 		}
 	}
