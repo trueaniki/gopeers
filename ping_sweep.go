@@ -9,6 +9,10 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
+// PingSweep returns a slice of strings containing the IP addresses of the
+// hosts that are alive in the network. It uses ICMP echo requests to check
+// if the hosts are alive.
+// The network parameter must be in the CIDR notation, for example "192.168.0.0/24".
 func PingSweep(network string) []string {
 	ips, myIp := getNetworkInfo(network)
 	m := sync.Mutex{}
