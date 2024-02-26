@@ -3,12 +3,14 @@ package gopeers
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 const (
-	PORT_S    = "34759"
 	PORT      = 34759
 	HELLO_MSG = "HELLO"
 )
@@ -21,13 +23,15 @@ type Peer struct {
 	ReadChan  chan []byte
 
 	laddr *net.TCPAddr
+
+	L *zap.Logger
 }
 
 // Tries to dial the ip by TCP
 func (p *Peer) tryConnect(ip string) {
 	conn, err := net.DialTCP("tcp",
 		nil,
-		&net.TCPAddr{IP: net.ParseIP(ip), Port: 34759},
+		&net.TCPAddr{IP: net.ParseIP(ip), Port: PORT},
 	)
 	// _, err := net.Dial("tcp", ip+":"+PORT)
 	if err != nil {
@@ -50,20 +54,19 @@ func (p *Peer) tryConnect(ip string) {
 
 func (p *Peer) muxWrite() {
 	for msg := range p.WriteChan {
-		fmt.Println("Got message", string(msg))
+		p.L.Info("Got message", zap.String("msg", string(msg)))
 		// Send the message to all peers
 		for peer := range p.Peers {
-			fmt.Println("Sending to", net.ParseIP(peer), PORT)
+			p.L.Info("Sending to", zap.String("peer", peer))
 			conn, err := net.DialTCP("tcp",
 				nil,
 				&net.TCPAddr{IP: net.ParseIP(peer), Port: PORT},
 			)
 			if err != nil {
-				fmt.Println("Error while dialing", peer, err)
-				fmt.Println(err)
+				p.L.Error("Error while dialing", zap.String("peer", peer), zap.Error(err))
 				continue
 			}
-			fmt.Println("Sending: ", string(msg))
+			p.L.Info("Writing: ", zap.String("msg", string(msg)))
 			_, err = conn.Write(msg)
 			if err != nil {
 				fmt.Println(err)
@@ -74,15 +77,15 @@ func (p *Peer) muxWrite() {
 }
 
 func (p *Peer) muxRead() {
-	fmt.Println("Waiting for connections")
-	ln, err := net.Listen("tcp", ":"+PORT_S)
+	p.L.Info("Waiting for connections...")
+	ln, err := net.Listen("tcp", ":"+strconv.Itoa(PORT))
 	if err != nil {
 		panic(err)
 	}
 	for {
 		// Accept new connections
 		conn, err := ln.Accept()
-		fmt.Println("New connection")
+		p.L.Info("New connection")
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -116,6 +119,11 @@ func (p *Peer) GracefulExit() {
 }
 
 func (p *Peer) Start() {
+	// If the logger is not set, set it to a no-op logger
+	if p.L == nil {
+		p.L = zap.NewNop()
+	}
+
 	go p.muxRead()
 	go p.muxWrite()
 }
