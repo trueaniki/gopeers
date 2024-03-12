@@ -33,7 +33,6 @@ func (p *Peer) tryConnect(ip string) {
 		nil,
 		&net.TCPAddr{IP: net.ParseIP(ip), Port: PORT},
 	)
-	// _, err := net.Dial("tcp", ip+":"+PORT)
 	if err != nil {
 		fmt.Println(err)
 		return
