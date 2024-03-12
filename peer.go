@@ -118,17 +118,7 @@ func (p *Peer) GracefulExit() {
 	close(p.ReadChan)
 }
 
-func (p *Peer) Start() {
-	// If the logger is not set, set it to a no-op logger
-	if p.L == nil {
-		p.L = zap.NewNop()
-	}
-
-	go p.muxRead()
-	go p.muxWrite()
-}
-
-func NewPeer(ipList []string) *Peer {
+func NewPeer() *Peer {
 	peer := &Peer{}
 	peer.WriteChan = make(chan []byte)
 	peer.ReadChan = make(chan []byte)
@@ -136,16 +126,37 @@ func NewPeer(ipList []string) *Peer {
 
 	peer.laddr = &net.TCPAddr{IP: nil, Port: 34759}
 
+	peer.L = zap.NewNop()
+
+	return peer
+}
+
+func (p *Peer) Discover(ipList []string) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(ipList))
 	// Find devices that are using gopeers
 	for _, ip := range ipList {
 		go func(ip string) {
-			peer.tryConnect(ip)
+			p.tryConnect(ip)
 			wg.Done()
 		}(ip)
 	}
 	wg.Wait()
+}
 
-	return peer
+func (p *Peer) ListPeers() []string {
+	peers := make([]string, 0, len(p.Peers))
+	for peer := range p.Peers {
+		peers = append(peers, peer)
+	}
+	return peers
+}
+
+func (p *Peer) SetLogger(l *zap.Logger) {
+	p.L = l
+}
+
+func (p *Peer) Listen() {
+	go p.muxRead()
+	go p.muxWrite()
 }
