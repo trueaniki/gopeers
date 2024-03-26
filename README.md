@@ -1,2 +1,2 @@
 # GOPEERS
-A library for peer to peer communication
+A library for convinient peer to peer communication between servies within one network. No broadcast server required.
